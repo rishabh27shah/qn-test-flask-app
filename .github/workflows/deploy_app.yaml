@@ -1,0 +1,42 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Configure SSH
+        uses: webfactory/ssh-agent@v0.5.2
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t python-test-app:latest .
+      
+      - name: Install Docker on server
+        run: |
+          ssh -o StrictHostKeyChecking=no -p 22 ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_IP }} 'curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh && sudo usermod -a -G docker $USER && sudo chown $USER:docker /var/run/docker.sock' 
+
+
+      - name: Push Docker image to server
+        run: |
+          docker save python-test-app:latest | ssh -o StrictHostKeyChecking=no -p 22 ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_IP }} 'docker load'
+
+      - name: Deploy to Server
+        run: |
+          ssh -o StrictHostKeyChecking=no -p 22 ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_IP }} 'bash -s' << 'ENDSSH'
+            docker stop python || true
+            docker rm python || true
+            docker run -d --name python --restart=always -p 80:8080 python-test-app:latest
+          ENDSSH
