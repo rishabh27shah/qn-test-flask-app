@@ -17,6 +17,10 @@ app = Flask(__name__)
 def test_endpoint():
     return '329d4feb-c5c0-4de5-b10c-701b44fbec4f'
 
+@app.route('/crash-app', methods=['GET'])
+def crash_endpoint():
+    return (a+b)
+
 @app.route('/health', methods=['GET'])
 def health_endpoint():
     return 'success'
